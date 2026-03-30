@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import './Accueil.css';
+import { searchMovie, searchRecipe, generateAIResponse, generateAIResponseForRecipes } from '../services/api';
+import { showAllRecommendations, insertRecommendation, deleteRecommendation as deleteCrud } from '../services/crud';
 
 
 const Accueil = () => {
@@ -44,50 +46,50 @@ const Accueil = () => {
 
     const chercher = async () => {
         if (category === "movies") {
-            
+            const data = await searchMovie(movie);
+            setSuggestedMovies(data.results || []);
         } else {
-            
+            const data = await searchRecipe(recipe);
+            setSuggestedRecipes(data.results || []);
         }
     }
 
     const genererReponse = async () => {
-        setIsGenerating();
+        setIsGenerating(true);
         try {
-            let params;
             let response;
             if (category === "movies") {
-                
-                setSelectedMovies();
-                setSuggestedMovies();
+                response = await generateAIResponse({ selectedMovies, mood, watchTime, watchWith });
+                setSelectedMovies([]);
+                setSuggestedMovies([]);
             } else {
-                params = { selectedRecipes: JSON.stringify(selectedRecipes), diet, timeAvailable, budget, skillLevel, cookingFor };
-                response = 
-                setSelectedRecipes();
-                setSuggestedRecipes();
+                response = await generateAIResponseForRecipes({ selectedRecipes, diet, timeAvailable, budget, skillLevel, cookingFor });
+                setSelectedRecipes([]);
+                setSuggestedRecipes([]);
             }
-            setAiResponse();
+            setAiResponse(response.response);
         } finally {
-            setIsGenerating();
+            setIsGenerating(false);
         }
     }
 
     const handleSelect = (title, checked) => {
         if (category === "movies") {
-            if (checked) setSelectedMovies([]);
-            else setSelectedMovies();
+            if (checked) setSelectedMovies([...selectedMovies, title]);
+            else setSelectedMovies(selectedMovies.filter(m => m !== title));
         } else {
-            if (checked) setSelectedRecipes([]);
-            else setSelectedRecipes();
+            if (checked) setSelectedRecipes([...selectedRecipes, title]);
+            else setSelectedRecipes(selectedRecipes.filter(r => r !== title));
         }
     };
 
     const sauvegarderRecommendation = async () => {
         switch (category) {
             case "movies":
-                
+                await sauvegarderFilmRecommendation();
                 break;
             case "recipes":
-                
+                await sauvegarderRecetteRecommendation();
                 break;
             default:
                 console.error("Unknown category:", category);
@@ -95,23 +97,23 @@ const Accueil = () => {
     }
 
     const sauvegarderFilmRecommendation = async () => {
-        
-        setSavedFilms();
+        const newRec = { category: "movies", title: movie, mood, watchTime, watchWith, aiSuggestion: aiResponse };
+        const result = await insertRecommendation(newRec);
+        setSavedFilms([...savedFilms, result.result]);
     }
 
     const sauvegarderRecetteRecommendation = async () => {
-        setSavedRecipes();
-        setSavedFilms();
+        const newRec = { category: "recipes", title: recipe, diet, timeAvailable, budget, skillLevel, cookingFor, aiSuggestion: aiResponse };
+        const result = await insertRecommendation(newRec);
+        setSavedRecipes([...savedRecipes, result.result]);
     }
 
     const deleteRecommendation = async (id) => {
-        
+        await deleteCrud(id);
         if (category === "movies") {
-
-            setSavedFilms();
+            setSavedFilms(savedFilms.filter(f => f._id !== id));
         } else {
-
-            setSavedRecipes();
+            setSavedRecipes(savedRecipes.filter(r => r._id !== id));
         }
     }
 
